@@ -1,11 +1,17 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
+from repositories.produto_repository import ProdutoRepository
+from repositories.movimentacao_repository import MovimentacaoRepository
 
 class TelaMovimentacao(tk.Frame):
     def __init__(self, master):
         super().__init__(master)
         self.master = master
+        
+        # Repositórios
+        self.produto_repository = ProdutoRepository()
+        self.movimentacao_repository = MovimentacaoRepository()
         
         # Título da tela
         tk.Label(self, text="Movimentação de Estoque", font=("Helvetica", 16, "bold")).pack(pady=10)
@@ -29,8 +35,8 @@ class TelaMovimentacao(tk.Frame):
         self.produto_cb = ttk.Combobox(op_frame, width=40)
         self.produto_cb.grid(row=1, column=1, columnspan=2, sticky="w", pady=5)
         
-        # Preencher combobox com produtos de exemplo
-        self.produto_cb['values'] = ["Produto 1", "Produto 2", "Produto 3", "Produto 4", "Produto 5"]
+        # Carregar produtos do banco de dados
+        self.carregar_produtos()
         
         # Quantidade
         tk.Label(op_frame, text="Quantidade:").grid(row=2, column=0, sticky="w", pady=5)
@@ -53,6 +59,13 @@ class TelaMovimentacao(tk.Frame):
         
         # Frame para histórico de movimentações
         self.criar_historico()
+        # Carregar movimentações existentes
+        self.carregar_movimentacoes()
+    
+    def carregar_produtos(self):
+        """Carrega produtos do banco de dados para o combobox"""
+        produtos = self.produto_repository.listar_todos()
+        self.produto_cb['values'] = [produto['nome'] for produto in produtos]
     
     def criar_historico(self):
         historico_frame = tk.LabelFrame(self, text="Histórico de Movimentações", padx=20, pady=10)
@@ -78,15 +91,26 @@ class TelaMovimentacao(tk.Frame):
         # Posicionar tabela e scrollbar
         self.tabela.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+    
+    def carregar_movimentacoes(self):
+        """Carrega movimentações do banco de dados para a tabela"""
+        # Limpar tabela atual
+        for item in self.tabela.get_children():
+            self.tabela.delete(item)
         
-        # Adicionar dados de exemplo
-        data_atual = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        # Carregar movimentações do banco de dados
+        movimentacoes = self.movimentacao_repository.listar_movimentacoes()
         
-        for i in range(10):
-            tipo = "Entrada" if i % 2 == 0 else "Saída"
-            quantidade = i + 5
-            self.tabela.insert("", 0, values=(f"{i+1}", data_atual, f"Produto {i%5 + 1}", 
-                                           tipo, quantidade, "Administrador"))
+        for mov in movimentacoes:
+            data_formatada = mov['data_hora'].strftime("%d/%m/%Y %H:%M:%S")
+            self.tabela.insert("", 0, values=(
+                mov['id'], 
+                data_formatada, 
+                mov['produto'], 
+                mov['tipo'], 
+                mov['quantidade'], 
+                mov['usuario']
+            ))
     
     def registrar_movimentacao(self):
         # Função para registrar movimentação
@@ -109,18 +133,32 @@ class TelaMovimentacao(tk.Frame):
         tipo = "Entrada" if self.tipo_operacao.get() == "entrada" else "Saída"
         observacoes = self.obs_text.get("1.0", "end-1c")
         
-        # Aqui implementaríamos a lógica para salvar no banco de dados
+        # Obter ID do produto
+        produto_id = self.produto_repository.obter_id_por_nome(produto)
+        if not produto_id:
+            messagebox.showerror("Erro", "Produto não encontrado no banco de dados!")
+            return
         
-        # Adicionar na tabela de histórico
-        data_atual = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        self.tabela.insert("", 0, values=(self.tabela.get_children().__len__() + 1, 
-                                       data_atual, produto, tipo, quantidade, "Administrador"))
+        # Registrar movimentação no banco de dados
+        sucesso, mensagem = self.movimentacao_repository.registrar_movimentacao(
+            produto_id=produto_id,
+            tipo=tipo,
+            quantidade=quantidade,
+            usuario="Administrador", # Em uma versão real, isso viria do sistema de login
+            observacoes=observacoes
+        )
         
-        messagebox.showinfo("Sucesso", f"Movimentação de {tipo} registrada com sucesso!")
-        
-        # Limpar campos
-        self.quantidade_entry.delete(0, "end")
-        self.obs_text.delete("1.0", "end")
+        if sucesso:
+            messagebox.showinfo("Sucesso", f"Movimentação de {tipo} registrada com sucesso!")
+            
+            # Limpar campos
+            self.quantidade_entry.delete(0, "end")
+            self.obs_text.delete("1.0", "end")
+            
+            # Atualizar a tabela de histórico
+            self.carregar_movimentacoes()
+        else:
+            messagebox.showerror("Erro", mensagem)
 
 if __name__ == "__main__":
     root = tk.Tk()
