@@ -1,5 +1,6 @@
+import csv
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 from datetime import datetime, timedelta
 
 class TelaRelatorios(tk.Frame):
@@ -50,9 +51,12 @@ class TelaRelatorios(tk.Frame):
         self.btn_30dias.pack(side="left", padx=5)
         
         # Botão para gerar relatório
-        self.btn_gerar = tk.Button(filtros_frame, text="Gerar Relatório", command=self.gerar_relatorio,
-                               bg="#4a86e8", fg="white", width=15)
-        self.btn_gerar.grid(row=3, column=1, sticky="e", pady=10)
+        self.btn_gerar = tk.Button(filtros_frame, text="Gerar Relatório", command=self.gerar_relatorio,bg="#4a86e8", fg="white", width=15)
+        self.btn_exportar = tk.Button(filtros_frame, text="Exportar Relatório", command=self.exportar_para_csv, bg="#4a86e8", fg="white", width=15)
+        
+        
+        self.btn_gerar.grid(row=3, column=0, sticky="e", pady=10)
+        self.btn_exportar.grid(row=3, column=1, sticky="e", pady=10)
         
         # Inicializar com o período de hoje
         self.definir_periodo(0)
@@ -228,3 +232,27 @@ class TelaRelatorios(tk.Frame):
             
             tabela.insert("", "end", values=(f"{i+1}", f"Produto {i+1}", quantidade, 
                                           f"R$ {valor_unitario:.2f}", f"R$ {valor_total:.2f}"))
+            
+            
+    def exportar_para_csv(self):
+           if not hasattr(self, "tabela"):
+               messagebox.showwarning("Aviso", "Nenhum relatório foi gerado ainda!")
+               return
+           
+           arquivo = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("Arquivo CSV", "*.csv")])
+           
+           if not arquivo:
+               return
+           
+           colunas = [self.tabela.heading(col)["text"] for col in self.tabela["columns"]]
+           dados = [self.tabela.item(item, "values") for item in self.tabela.get_children()]
+           
+           with open(arquivo, mode="w", newline="", encoding="utf-8") as f:
+               escritor = csv.writer(f)
+               escritor.writerow(colunas)
+               escritor.writerows(dados)
+           
+           messagebox.showinfo("Sucesso", "Relatório exportado com sucesso!")
+           
+           
+           
