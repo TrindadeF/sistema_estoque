@@ -1,5 +1,9 @@
 import mysql.connector
 from mysql.connector import Error
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 def criar_conexao():
     """Estabelece uma conexão com o banco de dados MySQL."""
@@ -7,9 +11,9 @@ def criar_conexao():
     try:
         conexao = mysql.connector.connect(
             host='localhost',
-            user='seu_usuario',
-            password='sua_senha',
-            database='nome_do_banco'
+            user='root',
+            password= os.getenv("DB_PASSWORD") | "",
+            database='Almo_Rael'
         )
         if conexao.is_connected():
             print("Conexão com o banco de dados estabelecida com sucesso.")
